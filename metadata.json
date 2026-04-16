@@ -1,0 +1,5 @@
+{
+  "name": "Linh AI Assistant",
+  "description": "A smart AI personal assistant that learns and adapts to your needs, featuring scheduling, reminders, information summarization, and task automation.",
+  "requestFramePermissions": ["microphone"]
+}

@@ -1,0 +1,166 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: reminders
+    // Document ID: auto-generated
+    // Fields:
+    //   - title: string (required, 1-200 chars)
+    //   - description: string (optional, 0-1000 chars)
+    //   - dueDate: string (required, ISO 8601)
+    //   - completed: bool (required)
+    //   - category: string (required, enum: work, personal, health, other)
+    //   - userId: string (required, matches owner)
+    //   - createdAt: string (required, ISO 8601)
+    //
+    // Collection: events
+    // Document ID: auto-generated
+    // Fields:
+    //   - title: string (required, 1-200 chars)
+    //   - startTime: string (required, ISO 8601)
+    //   - endTime: string (required, ISO 8601)
+    //   - location: string (optional, 0-500 chars)
+    //   - description: string (optional, 0-1000 chars)
+    //   - userId: string (required, matches owner)
+    //   - createdAt: string (required, ISO 8601)
+    //
+    // Collection: users
+    // Document ID: userId
+    // Fields:
+    //   - uid: string (required, matches owner)
+    //   - name: string (optional, 0-100 chars)
+    //   - email: string (required, email format)
+    //   - preferences: map (optional)
+    //
+    // Collection: messages
+    // Document ID: auto-generated
+    // Fields:
+    //   - role: string (required, enum: user, assistant)
+    //   - content: string (required, 1-5000 chars)
+    //   - timestamp: string (required, ISO 8601)
+    //   - expression: string (optional)
+    //   - userId: string (required, matches owner)
+    //
+    // Collection: insights
+    // Document ID: auto-generated
+    // Fields:
+    //   - userId: string (required, matches owner)
+    //   - type: string (required, enum: habit, preference, suggestion)
+    //   - content: string (required)
+    //   - confidence: number (optional)
+    //   - createdAt: string (required, ISO 8601)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidReminder(data) {
+      return data.keys().hasAll(['title', 'dueDate', 'completed', 'userId', 'createdAt']) &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+             isValidDateString(data.dueDate) &&
+             data.completed is bool &&
+             data.category in ['work', 'personal', 'health', 'other'] &&
+             data.userId == request.auth.uid &&
+             isValidDateString(data.createdAt);
+    }
+
+    function isValidEvent(data) {
+      return data.keys().hasAll(['title', 'startTime', 'endTime', 'userId', 'createdAt']) &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+             isValidDateString(data.startTime) &&
+             isValidDateString(data.endTime) &&
+             data.userId == request.auth.uid &&
+             isValidDateString(data.createdAt);
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email']) &&
+             data.uid == request.auth.uid &&
+             isValidEmail(data.email);
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['role', 'content', 'timestamp', 'userId']) &&
+             data.role in ['user', 'assistant'] &&
+             data.content is string && data.content.size() >= 1 && data.content.size() <= 5000 &&
+             isValidDateString(data.timestamp) &&
+             data.userId == request.auth.uid;
+    }
+
+    function isValidInsight(data) {
+      return data.keys().hasAll(['userId', 'type', 'content', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.type in ['habit', 'preference', 'suggestion'] &&
+             data.content is string &&
+             isValidDateString(data.createdAt);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /reminders/{reminderId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidReminder(request.resource.data);
+      allow update: if isDocOwner() && isValidReminder(request.resource.data) && 
+                      request.resource.data.userId == resource.data.userId;
+      allow delete: if isDocOwner();
+    }
+
+    match /events/{eventId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidEvent(request.resource.data);
+      allow update: if isDocOwner() && isValidEvent(request.resource.data) && 
+                      request.resource.data.userId == resource.data.userId;
+      allow delete: if isDocOwner();
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+    }
+
+    match /messages/{messageId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidMessage(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+
+    match /insights/{insightId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidInsight(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+  }
+}

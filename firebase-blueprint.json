@@ -1,0 +1,109 @@
+{
+  "entities": {
+    "Reminder": {
+      "title": "Reminder",
+      "description": "A task or reminder for the user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "dueDate": { "type": "string", "format": "date-time" },
+        "completed": { "type": "boolean" },
+        "category": { "type": "string", "enum": ["work", "personal", "health", "other"] },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "dueDate", "completed", "userId"]
+    },
+    "Event": {
+      "title": "Event",
+      "description": "A calendar event",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "location": { "type": "string" },
+        "description": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "startTime", "endTime", "userId"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User preferences and profile",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "preferences": {
+          "type": "object",
+          "properties": {
+            "theme": { "type": "string", "enum": ["light", "dark", "system"] },
+            "themeColor": { "type": "string" },
+            "layout": { "type": "string", "enum": ["grid", "list"] },
+            "fontSize": { "type": "string", "enum": ["sm", "base", "lg"] },
+            "notificationsEnabled": { "type": "boolean" },
+            "voiceEnabled": { "type": "boolean" }
+          }
+        },
+        "googleTokens": { "type": "object" }
+      },
+      "required": ["uid", "email"]
+    },
+    "UserInsight": {
+      "title": "UserInsight",
+      "description": "AI-generated insights about the user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["habit", "preference", "suggestion"] },
+        "content": { "type": "string" },
+        "confidence": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "type", "content"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A message in the chat conversation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "assistant"] },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "expression": { "type": "string" },
+        "userId": { "type": "string" }
+      },
+      "required": ["role", "content", "timestamp", "userId"]
+    }
+  },
+  "firestore": {
+    "/reminders/{reminderId}": {
+      "schema": "Reminder",
+      "description": "User reminders"
+    },
+    "/events/{eventId}": {
+      "schema": "Event",
+      "description": "User calendar events"
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile and settings"
+    },
+    "/insights/{insightId}": {
+      "schema": "UserInsight",
+      "description": "AI-generated user insights"
+    },
+    "/messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Chat conversation history"
+    }
+  }
+}
