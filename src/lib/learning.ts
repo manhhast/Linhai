@@ -36,7 +36,7 @@ export async function generateUserInsights(
        - Preferences: Things the user likes or dislikes.
        - Suggestions: Actionable advice that Linh (the AI) can offer proactively in future conversations.
     
-    Return a list of insights in JSON format.
+    Return a list of insights in JSON format. The "content" field MUST be in Vietnamese, written in a friendly tone as if observing a close friend.
   `;
 
   try {

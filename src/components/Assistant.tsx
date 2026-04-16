@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Sparkles, User, Bot, Loader2, Volume2, VolumeX } from 'lucide-react';
+import { Send, Sparkles, User, Bot, Loader2, Volume2, VolumeX, Mic, MicOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -22,6 +22,8 @@ import {
   OperationType 
 } from '@/src/lib/firebase';
 
+import { toast } from 'sonner';
+
 interface AssistantProps {
   onAction: (action: string, data: any) => Promise<any>;
   context: any;
@@ -35,13 +37,49 @@ export const Assistant: React.FC<AssistantProps> = ({ onAction, context, initial
   const [isLoading, setIsLoading] = useState(false);
   const [currentExpression, setCurrentExpression] = useState<Expression>('neutral');
   const [isListening, setIsListening] = useState(false);
-  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+  const [isChatModeActive, setIsChatModeActive] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const processedCommandRef = useRef<string | null>(null);
+  const proactiveTriggeredRef = useRef(false);
   const { tg } = useTelegram();
 
+  const toggleChatMode = useCallback(async () => {
+    const nextState = !isChatModeActive;
+    
+    if (nextState) {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+          await navigator.mediaDevices.getUserMedia({ audio: true });
+          setIsChatModeActive(true);
+          setIsListening(true);
+          toast.success("Đã bật chế độ trò chuyện liên tục!");
+        } catch (err) {
+          toast.error("Vui lòng cấp quyền micro để sử dụng chế độ trò chuyện.");
+          setIsChatModeActive(false);
+        }
+      } else {
+        setIsChatModeActive(true);
+        setIsListening(true);
+      }
+    } else {
+      setIsChatModeActive(false);
+      setIsListening(false);
+      toast.info("Đã tắt chế độ trò chuyện.");
+    }
+  }, [isChatModeActive, setIsListening]);
+
+  const toggleAudioFeedback = useCallback(() => {
+    const nextState = !isAudioEnabled;
+    setIsAudioEnabled(nextState);
+    if (!nextState && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    toast.info(nextState ? "Đã bật âm thanh phản hồi." : "Đã tắt âm thanh phản hồi.");
+  }, [isAudioEnabled]);
+
   const speak = useCallback((text: string) => {
-    if (!isVoiceEnabled || !window.speechSynthesis) return;
+    if (!isAudioEnabled || !window.speechSynthesis) return;
 
     // Cancel any ongoing speech
     window.speechSynthesis.cancel();
@@ -56,11 +94,14 @@ export const Assistant: React.FC<AssistantProps> = ({ onAction, context, initial
       const voices = window.speechSynthesis.getVoices();
       const viVoices = voices.filter(v => v.lang.includes('vi'));
       
+      // Preference: Vietnamese Female Voices
       const viFemaleVoice = viVoices.find(v => 
         v.name.toLowerCase().includes('female') || 
         v.name.toLowerCase().includes('nữ') || 
         v.name.toLowerCase().includes('linh') ||
-        v.name.toLowerCase().includes('mai')
+        v.name.toLowerCase().includes('mai') ||
+        v.name.toLowerCase().includes('lan') ||
+        v.name.toLowerCase().includes('thu')
       );
       
       const googleViVoice = viVoices.find(v => v.name.toLowerCase().includes('google'));
@@ -74,8 +115,8 @@ export const Assistant: React.FC<AssistantProps> = ({ onAction, context, initial
       }
 
       utterance.lang = 'vi-VN';
-      utterance.rate = 0.9;
-      utterance.pitch = 1.2;
+      utterance.rate = 1.0; // Normal rate
+      utterance.pitch = 1.1; // Slightly higher pitch for a friendlier female tone
       
       utterance.onend = () => {
         // Auto-resume listening only if it was active before speech
@@ -101,17 +142,21 @@ export const Assistant: React.FC<AssistantProps> = ({ onAction, context, initial
     } else {
       loadVoicesAndSpeak();
     }
-  }, [isVoiceEnabled, isListening, setIsListening]);
+  }, [isAudioEnabled, isListening, setIsListening]);
 
   // Speak welcome message on mount
   useEffect(() => {
-    if (messages.length === 0 && isVoiceEnabled) {
+    if (messages.length === 1 && !proactiveTriggeredRef.current && context.insights?.length > 0) {
+      proactiveTriggeredRef.current = true;
+      const latestInsight = context.insights[0];
+      const proactivePrompt = `Chào mình một cách đặc biệt dựa trên thông tin này: "${latestInsight.content}". Đừng quên hỏi thăm mình nhé!`;
+      handleSend(proactivePrompt, true); // true indicates a hidden/proactive command
+    } else if (messages.length === 0 && isAudioEnabled) {
       const welcomeText = 'Chào bạn! Tôi là Linh, trợ lý AI của bạn. Tôi có thể giúp gì cho bạn hôm nay?';
-      // Small delay to ensure voices are loaded
       const timer = setTimeout(() => speak(welcomeText), 1000);
       return () => clearTimeout(timer);
     }
-  }, [messages.length, isVoiceEnabled, speak]);
+  }, [messages.length, isAudioEnabled, speak, context.insights]);
 
   // Firestore Messages Listener
   useEffect(() => {
@@ -163,20 +208,22 @@ export const Assistant: React.FC<AssistantProps> = ({ onAction, context, initial
     }
   }, [messages]);
 
-  const handleSend = async (text: string) => {
+  const handleSend = async (text: string, isHidden: boolean = false) => {
     if (!text.trim() || !context.userProfile?.uid) return;
 
-    const userMessageData = {
-      role: 'user',
-      content: text,
-      timestamp: new Date().toISOString(),
-      userId: context.userProfile.uid
-    };
+    if (!isHidden) {
+      const userMessageData = {
+        role: 'user',
+        content: text,
+        timestamp: new Date().toISOString(),
+        userId: context.userProfile.uid
+      };
 
-    try {
-      await addDoc(collection(db, 'messages'), userMessageData);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'messages');
+      try {
+        await addDoc(collection(db, 'messages'), userMessageData);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.CREATE, 'messages');
+      }
     }
 
     setInput('');
@@ -197,21 +244,7 @@ export const Assistant: React.FC<AssistantProps> = ({ onAction, context, initial
         try {
           const actionData = JSON.parse(jsonMatch[1]);
           if (actionData.action && actionData.action !== 'NONE') {
-            const actionResult = await onAction(actionData.action, actionData.data);
-            
-            // If action returned data (like emails), Linh should process it
-            if (actionData.action === 'CHECK_EMAILS' && actionResult && !actionResult.error) {
-              const emailContext = `Dưới đây là danh sách email mới của người dùng: ${JSON.stringify(actionResult.messages)}. Hãy tóm tắt những email quan trọng nhất cho người dùng nhé.`;
-              const secondResponse = await processCommand(emailContext, context, [...history, { role: 'user', content: text }, { role: 'assistant', content: cleanResponse }]);
-              
-              // Update cleanResponse with the summary
-              const secondJsonMatch = secondResponse.match(/```json\n([\s\S]*?)\n```/);
-              if (secondJsonMatch) {
-                cleanResponse = secondResponse.replace(secondJsonMatch[0], '').trim();
-              } else {
-                cleanResponse = secondResponse;
-              }
-            }
+            await onAction(actionData.action, actionData.data);
           }
           if (actionData.expression) {
             expression = actionData.expression;
@@ -254,25 +287,19 @@ export const Assistant: React.FC<AssistantProps> = ({ onAction, context, initial
             <div>
               <h2 className="text-sm font-bold">Linh AI</h2>
               <p className="text-[10px] text-muted-foreground flex items-center">
-                {isListening ? (
+                {isChatModeActive ? (
                   <>
-                    <span className="w-1.5 h-1.5 bg-red-500 rounded-full mr-1 animate-pulse" />
-                    Đang lắng nghe liên tục...
+                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1 animate-pulse" />
+                    Chế độ trò chuyện đang bật
                   </>
+                ) : isAudioEnabled ? (
+                  "Phản hồi bằng âm thanh đang bật"
                 ) : (
                   "Trợ lý cá nhân thông minh"
                 )}
               </p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsVoiceEnabled(!isVoiceEnabled)}
-            className={`rounded-full ${isVoiceEnabled ? 'text-primary' : 'text-muted-foreground'}`}
-          >
-            {isVoiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-          </Button>
         </div>
       )}
 
@@ -340,6 +367,49 @@ export const Assistant: React.FC<AssistantProps> = ({ onAction, context, initial
           isListening={isListening} 
           setIsListening={setIsListening} 
         />
+        
+        <div className="flex items-center space-x-2 shrink-0">
+          <Button
+            variant={isChatModeActive ? "default" : "outline"}
+            size="icon"
+            onClick={toggleChatMode}
+            className={`rounded-full shadow-lg transition-all duration-300 ${isChatModeActive ? 'scale-105 ring-2 ring-primary/20 bg-primary' : 'bg-muted/50 border-white/10'}`}
+            title={isChatModeActive ? "Tắt chế độ trò chuyện" : "Bật chế độ trò chuyện"}
+          >
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={isChatModeActive ? 'on' : 'off'}
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.8, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                {isChatModeActive ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5 text-muted-foreground" />}
+              </motion.div>
+            </AnimatePresence>
+          </Button>
+
+          <Button
+            variant={isAudioEnabled ? "default" : "outline"}
+            size="icon"
+            onClick={toggleAudioFeedback}
+            className={`rounded-full shadow-lg transition-all duration-300 ${isAudioEnabled ? 'scale-105 ring-2 ring-primary/20 bg-primary' : 'bg-muted/50 border-white/10'}`}
+            title={isAudioEnabled ? "Tắt âm thanh phản hồi" : "Bật âm thanh phản hồi"}
+          >
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={isAudioEnabled ? 'on' : 'off'}
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.8, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                {isAudioEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5 text-muted-foreground" />}
+              </motion.div>
+            </AnimatePresence>
+          </Button>
+        </div>
+
         <div className="flex-1 relative">
           <Input
             placeholder="Nhập yêu cầu của bạn..."

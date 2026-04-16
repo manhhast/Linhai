@@ -16,10 +16,9 @@ import { toast } from 'sonner';
 interface SettingsProps {
   profile: UserProfile | null;
   onUpdate: (updates: Partial<UserProfile['preferences']>) => void;
-  onConnectCalendar: () => void;
 }
 
-export const SettingsView: React.FC<SettingsProps> = ({ profile, onUpdate, onConnectCalendar }) => {
+export const SettingsView: React.FC<SettingsProps> = ({ profile, onUpdate }) => {
   const { tg, user: tgUser } = useTelegram();
   if (!profile) return null;
 
@@ -139,46 +138,6 @@ export const SettingsView: React.FC<SettingsProps> = ({ profile, onUpdate, onCon
               </Select>
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card className="bg-card/50 dark:bg-zinc-900/50 border-white/5">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center">
-            <Globe className="w-5 h-5 mr-2 text-primary" />
-            Tích hợp Google (Lịch & Email)
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Kết nối với tài khoản Google để Linh có thể giúp bạn quản lý lịch trình và kiểm tra email quan trọng.
-          </p>
-          
-          {profile.googleTokens ? (
-            <div className="flex items-center p-4 rounded-xl bg-primary/10 border border-primary/20">
-              <CheckCircle2 className="w-5 h-5 text-primary mr-3" />
-              <div className="flex-1">
-                <p className="text-sm font-medium">Đã kết nối với Google</p>
-                <p className="text-xs text-muted-foreground">Linh hiện có quyền xem lịch và email của bạn.</p>
-              </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={onConnectCalendar}
-                className="ml-4"
-              >
-                Kết nối lại
-              </Button>
-            </div>
-          ) : (
-            <Button 
-              onClick={onConnectCalendar}
-              className="w-full sm:w-auto bg-[#4285F4] hover:bg-[#357abd] text-white"
-            >
-              <Calendar className="w-4 h-4 mr-2" />
-              Kết nối tài khoản Google
-            </Button>
-          )}
         </CardContent>
       </Card>
 

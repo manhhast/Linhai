@@ -128,61 +128,26 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({ onTranscript, isListenin
   if (!isSupported) return null;
 
   return (
-    <div className="relative flex items-center">
+    <div className="pointer-events-none">
       <AnimatePresence>
         {isListening && interimTranscript && (
           <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            className="absolute right-14 bg-background/90 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-primary/20 shadow-xl whitespace-nowrap z-50"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-primary/20 backdrop-blur-md px-6 py-3 rounded-2xl border border-primary/30 shadow-2xl z-50 flex items-center space-x-3"
           >
-            <p className="text-xs text-primary font-medium italic">
-              {interimTranscript}...
+            <motion.div 
+               animate={{ scale: [1, 1.2, 1] }} 
+               transition={{ repeat: Infinity, duration: 1 }}
+               className="w-2 h-2 bg-primary rounded-full"
+            />
+            <p className="text-sm text-primary font-bold italic">
+              "{interimTranscript}..."
             </p>
           </motion.div>
         )}
       </AnimatePresence>
-
-      <Button
-        variant={isListening ? "destructive" : "secondary"}
-        size="icon"
-        className={`rounded-full w-12 h-12 shadow-lg transition-all duration-300 ${isListening ? 'scale-110 ring-4 ring-destructive/20' : ''}`}
-        onClick={toggleListening}
-        title={isListening ? "Dừng lắng nghe" : "Nhấn để nói (Chế độ liên tục)"}
-      >
-        {isListening ? (
-          <motion.div
-            animate={{ scale: [1, 1.2, 1] }}
-            transition={{ repeat: Infinity, duration: 1 }}
-          >
-            <MicOff className="w-6 h-6" />
-          </motion.div>
-        ) : (
-          <Mic className="w-6 h-6" />
-        )}
-      </Button>
-      
-      <AnimatePresence>
-        {isListening && (
-          <>
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1.5, opacity: 0.2 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-              className="absolute inset-0 bg-primary rounded-full -z-10"
-            />
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 2, opacity: 0.1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              transition={{ repeat: Infinity, duration: 2, ease: "easeInOut", delay: 0.5 }}
-              className="absolute inset-0 bg-primary rounded-full -z-10"
-            />
-          </>
-        )}
-      </AnimatePresence>
     </div>
   );
-};
+}

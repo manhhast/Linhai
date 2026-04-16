@@ -28,7 +28,6 @@ export interface UserProfile {
     notificationsEnabled: boolean;
     voiceEnabled: boolean;
   };
-  googleTokens?: any;
 }
 
 export interface UserInsight {

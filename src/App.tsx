@@ -255,47 +255,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, [user, reminders, events, messages]);
 
-  // OAuth Listener
-  useEffect(() => {
-    const handleMessage = async (event: MessageEvent) => {
-      if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
-        const tokens = event.data.tokens;
-        if (user && tokens) {
-          try {
-            await updateDoc(doc(db, 'users', user.uid), {
-              googleTokens: tokens
-            });
-            toast.success("Đã kết nối Google thành công!");
-          } catch (error) {
-            console.error("Error saving tokens:", error);
-            toast.error("Lỗi khi lưu thông tin kết nối.");
-          }
-        }
-      }
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [user]);
 
-  const handleConnectCalendar = async () => {
-    try {
-      const response = await fetch(getApiUrl('/api/auth/google/url'));
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Server returned an error page" }));
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-      }
-      const { url } = await response.json();
-      window.open(url, 'google_oauth', 'width=600,height=700');
-    } catch (error) {
-      console.error("Calendar connect error:", error);
-      const message = error instanceof Error ? error.message : "Không thể kết nối với Google.";
-      if (message.includes("GOOGLE_CLIENT_ID")) {
-        toast.error("Vui lòng cấu hình GOOGLE_CLIENT_ID và GOOGLE_CLIENT_SECRET trong phần Settings của AI Studio.");
-      } else {
-        toast.error(`Lỗi kết nối: ${message}`);
-      }
-    }
-  };
 
   const handleUpdateProfile = async (updates: Partial<UserProfile['preferences']>) => {
     if (!user) return;
@@ -356,18 +316,6 @@ export default function App() {
           });
           toast.success(`Đã lên lịch: ${data.title}`);
           return { id: eventRef.id };
-        case 'CHECK_EMAILS':
-          if (!userProfile?.googleTokens) {
-            toast.error("Vui lòng kết nối Google trong phần Cài đặt để kiểm tra email.");
-            return { error: "AUTH_REQUIRED" };
-          }
-          const response = await fetch(getApiUrl('/api/gmail/list'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tokens: userProfile.googleTokens })
-          });
-          const emailData = await response.json();
-          return emailData;
         default:
           console.log("Action not handled:", action, data);
           return null;
@@ -534,7 +482,6 @@ export default function App() {
                   <SettingsView 
                     profile={userProfile} 
                     onUpdate={handleUpdateProfile}
-                    onConnectCalendar={handleConnectCalendar}
                   />
                 </motion.div>
               </TabsContent>
