@@ -4,14 +4,8 @@
   "description": "Trợ lý ảo thông minh giúp bạn quản lý cuộc sống và học hỏi từ thói quen của bạn.",
   "icons": [
     {
-      "src": "https://picsum.photos/seed/linhai/192/192",
-      "type": "image/png",
-      "sizes": "192x192",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "https://picsum.photos/seed/linhai/512/512",
-      "type": "image/png",
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
       "sizes": "512x512",
       "purpose": "any maskable"
     }
