@@ -45,6 +45,7 @@ export const Assistant: React.FC<AssistantProps> = ({
   const [isListening, setIsListening] = useState(false);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isChatModeActive, setIsChatModeActive] = useState(false);
+  const [isAssistantSpeaking, setIsAssistantSpeaking] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const processedCommandRef = useRef<string | null>(null);
   const proactiveTriggeredRef = useRef(false);
@@ -124,7 +125,12 @@ export const Assistant: React.FC<AssistantProps> = ({
       utterance.rate = 1.0; // Normal rate
       utterance.pitch = 1.1; // Slightly higher pitch for a friendlier female tone
       
+      utterance.onstart = () => {
+        setIsAssistantSpeaking(true);
+      };
+
       utterance.onend = () => {
+        setIsAssistantSpeaking(false);
         // Auto-resume listening only if it was active before speech
         if (wasListeningBeforeSpeech) {
           setIsListening(true);
@@ -132,6 +138,7 @@ export const Assistant: React.FC<AssistantProps> = ({
       };
 
       utterance.onerror = () => {
+        setIsAssistantSpeaking(false);
         if (wasListeningBeforeSpeech) {
           setIsListening(true);
         }
@@ -326,7 +333,12 @@ export const Assistant: React.FC<AssistantProps> = ({
       {!tg && (
         <div className="p-4 border-b border-primary/10 bg-primary/5 dark:bg-primary/10 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <RobotFace expression={currentExpression} size="md" className="text-primary" />
+            <RobotFace 
+              expression={currentExpression} 
+              size="md" 
+              className="text-primary" 
+              isSpeaking={isAssistantSpeaking}
+            />
             <div>
               <h2 className="text-sm font-bold">Linh AI</h2>
               <p className="text-[10px] text-muted-foreground flex items-center">
@@ -343,6 +355,22 @@ export const Assistant: React.FC<AssistantProps> = ({
               </p>
             </div>
           </div>
+          
+          {isAssistantSpeaking && (
+            <Button 
+              variant="destructive" 
+              size="sm" 
+              onClick={() => {
+                window.speechSynthesis.cancel();
+                setIsAssistantSpeaking(false);
+                if (isChatModeActive) setIsListening(true);
+              }}
+              className="rounded-full h-8 text-xs font-bold animate-pulse"
+            >
+              <VolumeX className="w-3 h-3 mr-1" />
+              Dừng nói
+            </Button>
+          )}
         </div>
       )}
 

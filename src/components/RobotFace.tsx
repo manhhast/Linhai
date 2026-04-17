@@ -6,9 +6,15 @@ interface RobotFaceProps {
   expression: Expression;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
+  isSpeaking?: boolean;
 }
 
-export const RobotFace: React.FC<RobotFaceProps> = ({ expression = 'neutral', size = 'md', className = '' }) => {
+export const RobotFace: React.FC<RobotFaceProps> = ({ 
+  expression = 'neutral', 
+  size = 'md', 
+  className = '',
+  isSpeaking = false 
+}) => {
   const dimensions = {
     sm: 'w-8 h-8',
     md: 'w-12 h-12',
@@ -32,6 +38,9 @@ export const RobotFace: React.FC<RobotFaceProps> = ({ expression = 'neutral', si
   };
 
   const getMouthPath = () => {
+    if (isSpeaking) {
+      return "M 40 75 Q 50 80 60 75"; // Slightly open
+    }
     const safeExpression = expression || 'neutral';
     switch (safeExpression) {
       case 'happy':
@@ -56,7 +65,7 @@ export const RobotFace: React.FC<RobotFaceProps> = ({ expression = 'neutral', si
         <rect
           x="10" y="10" width="80" height="80" rx="20"
           fill="currentColor"
-          className={`text-primary/20 transition-all duration-300 ${isThinking ? 'animate-bounce' : ''}`}
+          className={`text-primary/20 transition-all duration-300 ${isThinking ? 'animate-bounce' : ''} ${isSpeaking ? 'animate-pulse' : ''}`}
           stroke="currentColor"
           strokeWidth="2"
         />
@@ -71,7 +80,7 @@ export const RobotFace: React.FC<RobotFaceProps> = ({ expression = 'neutral', si
           strokeWidth="4"
           strokeLinecap="round"
           fill="none"
-          className="transition-all duration-300"
+          className={`transition-all duration-300 ${isSpeaking ? 'animate-[pulse_0.5s_infinite]' : ''}`}
         />
         <path
           d={getEyePath('right')}
@@ -79,7 +88,7 @@ export const RobotFace: React.FC<RobotFaceProps> = ({ expression = 'neutral', si
           strokeWidth="4"
           strokeLinecap="round"
           fill="none"
-          className="transition-all duration-300"
+          className={`transition-all duration-300 ${isSpeaking ? 'animate-[pulse_0.5s_infinite]' : ''}`}
         />
 
         {/* Mouth */}
@@ -89,7 +98,7 @@ export const RobotFace: React.FC<RobotFaceProps> = ({ expression = 'neutral', si
           strokeWidth="3"
           strokeLinecap="round"
           fill="none"
-          className="transition-all duration-300"
+          className={`transition-all duration-300 ${isSpeaking ? 'animate-bounce' : ''}`}
         />
 
         {/* Antenna */}

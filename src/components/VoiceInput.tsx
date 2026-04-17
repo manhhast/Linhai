@@ -94,6 +94,30 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({ onTranscript, isListenin
     }
   }, [isListening]);
 
+  const playFeedbackSound = (type: 'start' | 'stop') => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(type === 'start' ? 523.25 : 440, ctx.currentTime); // C5 or A4
+      
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+      
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.start();
+      osc.stop(ctx.currentTime + 0.1);
+    } catch (e) {
+      // Ignore audio errors
+    }
+  };
+
   const toggleListening = useCallback(async () => {
     if (!recognitionRef.current) {
       toast.error("Trình duyệt của bạn không hỗ trợ nhận diện giọng nói.");
@@ -101,6 +125,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({ onTranscript, isListenin
     }
     
     if (isListening) {
+      playFeedbackSound('stop');
       setIsListening(false);
     } else {
       try {
@@ -116,6 +141,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({ onTranscript, isListenin
           }
         }
 
+        playFeedbackSound('start');
         setIsListening(true);
         toast.info("Linh đang lắng nghe bạn nè...");
       } catch (e) {
@@ -128,16 +154,35 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({ onTranscript, isListenin
 
   return (
     <div className="pointer-events-none">
-      {isListening && interimTranscript && (
-        <div
-          className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-primary/20 backdrop-blur-md px-6 py-3 rounded-2xl border border-primary/30 shadow-2xl z-50 flex items-center space-x-3"
-        >
-          <div 
-             className="w-2 h-2 bg-primary rounded-full animate-pulse"
-          />
-          <p className="text-sm text-primary font-bold italic">
-            "{interimTranscript}..."
-          </p>
+      {isListening && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center space-y-4">
+          {/* Animated audio waves */}
+          <div className="flex items-center space-x-1 h-12">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+              <div
+                key={i}
+                className="w-1 bg-primary rounded-full animate-[bounce_1s_infinite]"
+                style={{ 
+                  height: `${Math.random() * 100}%`,
+                  animationDelay: `${i * 0.1}s`,
+                  opacity: 0.4 + (Math.random() * 0.6)
+                }}
+              />
+            ))}
+          </div>
+
+          {interimTranscript && (
+            <div
+              className="bg-primary/20 backdrop-blur-md px-6 py-3 rounded-2xl border border-primary/30 shadow-2xl flex items-center space-x-3"
+            >
+              <div 
+                 className="w-2 h-2 bg-primary rounded-full animate-pulse"
+              />
+              <p className="text-sm text-primary font-bold italic">
+                "{interimTranscript}..."
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
