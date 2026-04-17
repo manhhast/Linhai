@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Mic, MicOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 
 interface VoiceInputProps {
@@ -129,25 +128,18 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({ onTranscript, isListenin
 
   return (
     <div className="pointer-events-none">
-      <AnimatePresence>
-        {isListening && interimTranscript && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-primary/20 backdrop-blur-md px-6 py-3 rounded-2xl border border-primary/30 shadow-2xl z-50 flex items-center space-x-3"
-          >
-            <motion.div 
-               animate={{ scale: [1, 1.2, 1] }} 
-               transition={{ repeat: Infinity, duration: 1 }}
-               className="w-2 h-2 bg-primary rounded-full"
-            />
-            <p className="text-sm text-primary font-bold italic">
-              "{interimTranscript}..."
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {isListening && interimTranscript && (
+        <div
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-primary/20 backdrop-blur-md px-6 py-3 rounded-2xl border border-primary/30 shadow-2xl z-50 flex items-center space-x-3"
+        >
+          <div 
+             className="w-2 h-2 bg-primary rounded-full animate-pulse"
+          />
+          <p className="text-sm text-primary font-bold italic">
+            "{interimTranscript}..."
+          </p>
+        </div>
+      )}
     </div>
   );
 }

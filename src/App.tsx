@@ -198,8 +198,7 @@ export default function App() {
     const messagesQuery = query(
       collection(db, 'messages'),
       where('userId', '==', user.uid),
-      orderBy('timestamp', 'desc'),
-      limit(20)
+      limit(50)
     );
     const unsubscribeMessages = onSnapshot(messagesQuery, (snapshot) => {
       const data = snapshot.docs.map(doc => ({
@@ -207,8 +206,13 @@ export default function App() {
         id: doc.id,
         timestamp: new Date(doc.data().timestamp)
       })) as ChatMessage[];
-      setMessages(data.reverse());
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'messages'));
+      
+      // Sort client-side to avoid needing composite indices
+      const sortedData = [...data].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+      setMessages(sortedData);
+    }, (error) => {
+      console.error("Firestore messages listener error in App:", error);
+    });
 
     return () => {
       unsubscribeReminders();
@@ -428,64 +432,41 @@ export default function App() {
               </TabsTrigger>
             </TabsList>
 
-            <AnimatePresence mode="wait">
-              <TabsContent key="tab-dashboard" value="dashboard" className="mt-6 flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                <motion.div
-                  key="dashboard-motion"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                >
-                  {insights.length > 0 && (
-                    <div className="mb-6 p-4 rounded-2xl bg-primary/10 border border-primary/20 flex items-start space-x-3">
-                      <Brain className="w-5 h-5 text-primary shrink-0 mt-1" style={{ color: 'var(--primary)' }} />
-                      <div>
-                        <h4 className="text-sm font-bold text-primary" style={{ color: 'var(--primary)' }}>Gợi ý từ Linh</h4>
-                        <p className="text-xs text-muted-foreground">{insights[insights.length - 1].content}</p>
-                      </div>
-                    </div>
-                  )}
-                  <Dashboard 
-                    reminders={reminders} 
-                    events={events} 
-                    onToggleReminder={toggleReminder} 
-                    onAction={handleDashboardAction}
-                    layout={userProfile?.preferences.layout}
-                  />
-                </motion.div>
-              </TabsContent>
+            <TabsContent key="tab-dashboard" value="dashboard" className="mt-6 flex-1 overflow-y-auto pr-2 custom-scrollbar">
+              {insights.length > 0 && (
+                <div className="mb-6 p-4 rounded-2xl bg-primary/10 border border-primary/20 flex items-start space-x-3">
+                  <Brain className="w-5 h-5 text-primary shrink-0 mt-1" style={{ color: 'var(--primary)' }} />
+                  <div>
+                    <h4 className="text-sm font-bold text-primary" style={{ color: 'var(--primary)' }}>Gợi ý từ Linh</h4>
+                    <p className="text-xs text-muted-foreground">{insights[insights.length - 1].content}</p>
+                  </div>
+                </div>
+              )}
+              <Dashboard 
+                reminders={reminders} 
+                events={events} 
+                onToggleReminder={toggleReminder} 
+                onAction={handleDashboardAction}
+                layout={userProfile?.preferences.layout}
+              />
+            </TabsContent>
 
-              <TabsContent key="tab-assistant" value="assistant" className="mt-6 flex-1 overflow-hidden">
-                <motion.div
-                  key="assistant-motion"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  className="h-full"
-                >
-                  <Assistant 
-                    onAction={handleAction} 
-                    context={{ reminders, events, userProfile, insights }} 
-                    initialCommand={pendingCommand}
-                    onClearInitialCommand={() => setPendingCommand(undefined)}
-                  />
-                </motion.div>
-              </TabsContent>
+            <TabsContent key="tab-assistant" value="assistant" className="mt-6 flex-1 overflow-hidden">
+              <Assistant 
+                onAction={handleAction} 
+                context={{ reminders, events, userProfile, insights }} 
+                initialCommand={pendingCommand}
+                onClearInitialCommand={() => setPendingCommand(undefined)}
+                isActive={activeTab === 'assistant'}
+              />
+            </TabsContent>
 
-              <TabsContent key="tab-settings" value="settings" className="mt-6 flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                <motion.div
-                  key="settings-motion"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                >
-                  <SettingsView 
-                    profile={userProfile} 
-                    onUpdate={handleUpdateProfile}
-                  />
-                </motion.div>
-              </TabsContent>
-            </AnimatePresence>
+            <TabsContent key="tab-settings" value="settings" className="mt-6 flex-1 overflow-y-auto pr-2 custom-scrollbar">
+              <SettingsView 
+                profile={userProfile} 
+                onUpdate={handleUpdateProfile}
+              />
+            </TabsContent>
           </Tabs>
         )}
       </div>

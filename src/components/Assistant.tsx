@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChatMessage } from '@/src/types';
-import { motion, AnimatePresence } from 'motion/react';
 import { RobotFace, Expression } from './RobotFace';
 import { VoiceInput } from './VoiceInput';
 import { processCommand } from '@/src/lib/gemini';
@@ -29,9 +28,16 @@ interface AssistantProps {
   context: any;
   initialCommand?: string;
   onClearInitialCommand?: () => void;
+  isActive?: boolean;
 }
 
-export const Assistant: React.FC<AssistantProps> = ({ onAction, context, initialCommand, onClearInitialCommand }) => {
+export const Assistant: React.FC<AssistantProps> = ({ 
+  onAction, 
+  context, 
+  initialCommand, 
+  onClearInitialCommand,
+  isActive 
+}) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -39,7 +45,7 @@ export const Assistant: React.FC<AssistantProps> = ({ onAction, context, initial
   const [isListening, setIsListening] = useState(false);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isChatModeActive, setIsChatModeActive] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const processedCommandRef = useRef<string | null>(null);
   const proactiveTriggeredRef = useRef(false);
   const { tg } = useTelegram();
@@ -165,7 +171,6 @@ export const Assistant: React.FC<AssistantProps> = ({ onAction, context, initial
     const messagesQuery = query(
       collection(db, 'messages'),
       where('userId', '==', context.userProfile.uid),
-      orderBy('timestamp', 'asc'),
       limit(50)
     );
 
@@ -176,7 +181,10 @@ export const Assistant: React.FC<AssistantProps> = ({ onAction, context, initial
         timestamp: new Date(doc.data().timestamp)
       })) as ChatMessage[];
       
-      if (data.length === 0) {
+      // Sort client-side to avoid needing composite indices
+      const sortedData = [...data].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+      
+      if (sortedData.length === 0) {
         setMessages([
           {
             id: 'welcome-message',
@@ -187,9 +195,12 @@ export const Assistant: React.FC<AssistantProps> = ({ onAction, context, initial
           }
         ]);
       } else {
-        setMessages(data);
+        setMessages(sortedData);
       }
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'messages'));
+    }, (error) => {
+      console.error("Firestore messages listener error:", error);
+      // Silent fail for listener if just index missing, but log it
+    });
 
     return () => unsubscribe();
   }, [context.userProfile?.uid]);
@@ -202,11 +213,22 @@ export const Assistant: React.FC<AssistantProps> = ({ onAction, context, initial
     }
   }, [initialCommand, onClearInitialCommand]);
 
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  }, []);
+
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (messages.length > 0) {
+      const behavior = messages.length <= 1 ? 'auto' : 'smooth';
+      scrollToBottom(behavior);
     }
-  }, [messages]);
+  }, [messages, scrollToBottom]);
+
+  useEffect(() => {
+    if (isActive) {
+      scrollToBottom('auto');
+    }
+  }, [isActive, scrollToBottom]);
 
   const handleSend = async (text: string, isHidden: boolean = false) => {
     if (!text.trim() || !context.userProfile?.uid) return;
@@ -231,11 +253,9 @@ export const Assistant: React.FC<AssistantProps> = ({ onAction, context, initial
     setCurrentExpression('thinking');
 
     try {
-      // Pass the last 10 messages as history for context
       const history = messages.slice(-10).map(m => ({ role: m.role, content: m.content }));
       const response = await processCommand(text, context, history);
       
-      // Check for JSON action in response
       const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/);
       let cleanResponse = response;
       let expression: Expression = 'neutral';
@@ -271,8 +291,9 @@ export const Assistant: React.FC<AssistantProps> = ({ onAction, context, initial
       }
 
       speak(cleanResponse || "Mình đã thực hiện xong yêu cầu của bạn rồi nè!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error processing command:", error);
+      toast.error("Có lỗi xảy ra khi trò chuyện với Linh. Bạn vui lòng thử lại nhé!");
     } finally {
       setIsLoading(false);
     }
@@ -303,46 +324,42 @@ export const Assistant: React.FC<AssistantProps> = ({ onAction, context, initial
         </div>
       )}
 
-      <ScrollArea className="flex-1 p-4 min-h-0" ref={scrollRef}>
+      <ScrollArea className="flex-1 p-4 min-h-0">
         <div className="space-y-6">
-          <AnimatePresence initial={false}>
-            {messages.map((msg) => (
-              <motion.div
-                key={msg.id}
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div className={`flex items-start space-x-3 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse space-x-reverse' : ''}`}>
-                  <div className={`shrink-0 mt-1`}>
-                    {msg.role === 'user' ? (
-                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
-                        <User className="w-4 h-4" />
-                      </div>
-                    ) : (
-                      <RobotFace expression={msg.expression || 'neutral'} size="sm" className="text-primary" />
-                    )}
-                  </div>
-                  <div className={`p-4 rounded-2xl text-sm leading-relaxed shadow-sm relative group ${
-                    msg.role === 'user' 
-                      ? 'bg-primary text-primary-foreground rounded-tr-none' 
-                      : 'bg-muted/80 dark:bg-zinc-900/80 text-foreground dark:text-zinc-100 rounded-tl-none border border-black/5 dark:border-white/10'
-                  }`}>
-                    {msg.content}
-                    {msg.role === 'assistant' && (
-                      <button 
-                        onClick={() => speak(msg.content)}
-                        className="absolute -right-8 top-1/2 -translate-y-1/2 p-1 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
-                        title="Nghe lại"
-                      >
-                        <Volume2 className="w-3 h-3" />
-                      </button>
-                    )}
-                  </div>
+          {messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
+              <div className={`flex items-start space-x-3 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse space-x-reverse' : ''}`}>
+                <div className={`shrink-0 mt-1`}>
+                  {msg.role === 'user' ? (
+                    <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                      <User className="w-4 h-4" />
+                    </div>
+                  ) : (
+                    <RobotFace expression={msg.expression || 'neutral'} size="sm" className="text-primary" />
+                  )}
                 </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
+                <div className={`p-4 rounded-2xl text-sm leading-relaxed shadow-sm relative group ${
+                  msg.role === 'user' 
+                    ? 'bg-primary text-primary-foreground rounded-tr-none' 
+                    : 'bg-muted/80 dark:bg-zinc-900/80 text-foreground dark:text-zinc-100 rounded-tl-none border border-black/5 dark:border-white/10'
+                }`}>
+                  {msg.content}
+                  {msg.role === 'assistant' && (
+                    <button 
+                      onClick={() => speak(msg.content)}
+                      className="absolute -right-8 top-1/2 -translate-y-1/2 p-1 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+                      title="Nghe lại"
+                    >
+                      <Volume2 className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
           {isLoading && (
             <div className="flex justify-start">
               <div className="flex items-center space-x-3 bg-muted/50 dark:bg-zinc-900/50 p-4 rounded-2xl rounded-tl-none border border-black/5 dark:border-white/10">
@@ -350,14 +367,15 @@ export const Assistant: React.FC<AssistantProps> = ({ onAction, context, initial
                 <div className="flex flex-col">
                   <span className="text-xs font-medium text-primary animate-pulse">Linh đang suy nghĩ...</span>
                   <div className="flex space-x-1 mt-1">
-                    <motion.div animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 1 }} className="w-1 h-1 bg-primary rounded-full" />
-                    <motion.div animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-1 h-1 bg-primary rounded-full" />
-                    <motion.div animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-1 h-1 bg-primary rounded-full" />
+                    <div className="w-1 h-1 bg-primary rounded-full animate-bounce [animation-duration:1s]" />
+                    <div className="w-1 h-1 bg-primary rounded-full animate-bounce [animation-duration:1s] [animation-delay:0.2s]" />
+                    <div className="w-1 h-1 bg-primary rounded-full animate-bounce [animation-duration:1s] [animation-delay:0.4s]" />
                   </div>
                 </div>
               </div>
             </div>
           )}
+          <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
 
@@ -376,17 +394,7 @@ export const Assistant: React.FC<AssistantProps> = ({ onAction, context, initial
             className={`rounded-full shadow-lg transition-all duration-300 ${isChatModeActive ? 'scale-105 ring-2 ring-primary/20 bg-primary' : 'bg-muted/50 border-white/10'}`}
             title={isChatModeActive ? "Tắt chế độ trò chuyện" : "Bật chế độ trò chuyện"}
           >
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={isChatModeActive ? 'on' : 'off'}
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.8, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                {isChatModeActive ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5 text-muted-foreground" />}
-              </motion.div>
-            </AnimatePresence>
+            {isChatModeActive ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5 text-muted-foreground" />}
           </Button>
 
           <Button
@@ -396,17 +404,7 @@ export const Assistant: React.FC<AssistantProps> = ({ onAction, context, initial
             className={`rounded-full shadow-lg transition-all duration-300 ${isAudioEnabled ? 'scale-105 ring-2 ring-primary/20 bg-primary' : 'bg-muted/50 border-white/10'}`}
             title={isAudioEnabled ? "Tắt âm thanh phản hồi" : "Bật âm thanh phản hồi"}
           >
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={isAudioEnabled ? 'on' : 'off'}
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.8, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                {isAudioEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5 text-muted-foreground" />}
-              </motion.div>
-            </AnimatePresence>
+            {isAudioEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5 text-muted-foreground" />}
           </Button>
         </div>
 

@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion } from 'motion/react';
 
 export type Expression = 'neutral' | 'happy' | 'thinking' | 'surprised' | 'sad';
 
@@ -9,7 +8,7 @@ interface RobotFaceProps {
   className?: string;
 }
 
-export const RobotFace: React.FC<RobotFaceProps> = ({ expression, size = 'md', className = '' }) => {
+export const RobotFace: React.FC<RobotFaceProps> = ({ expression = 'neutral', size = 'md', className = '' }) => {
   const dimensions = {
     sm: 'w-8 h-8',
     md: 'w-12 h-12',
@@ -17,7 +16,8 @@ export const RobotFace: React.FC<RobotFaceProps> = ({ expression, size = 'md', c
   };
 
   const getEyePath = (side: 'left' | 'right') => {
-    switch (expression) {
+    const safeExpression = expression || 'neutral';
+    switch (safeExpression) {
       case 'happy':
         return side === 'left' ? "M 30 45 Q 35 40 40 45" : "M 60 45 Q 65 40 70 45";
       case 'sad':
@@ -32,7 +32,8 @@ export const RobotFace: React.FC<RobotFaceProps> = ({ expression, size = 'md', c
   };
 
   const getMouthPath = () => {
-    switch (expression) {
+    const safeExpression = expression || 'neutral';
+    switch (safeExpression) {
       case 'happy':
         return "M 35 70 Q 50 85 65 70";
       case 'sad':
@@ -46,74 +47,62 @@ export const RobotFace: React.FC<RobotFaceProps> = ({ expression, size = 'md', c
     }
   };
 
+  const isThinking = expression === 'thinking';
+
   return (
     <div className={`${dimensions[size]} ${className} relative flex items-center justify-center`}>
       <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]">
         {/* Head */}
-        <motion.rect
+        <rect
           x="10" y="10" width="80" height="80" rx="20"
           fill="currentColor"
-          className="text-primary/20"
+          className={`text-primary/20 transition-all duration-300 ${isThinking ? 'animate-bounce' : ''}`}
           stroke="currentColor"
           strokeWidth="2"
-          animate={{
-            y: expression === 'thinking' ? [10, 5, 10] : 10
-          }}
-          transition={{ repeat: Infinity, duration: 2 }}
         />
         
         {/* Screen Background */}
         <rect x="20" y="25" width="60" height="55" rx="10" fill="#0a0a0a" />
 
         {/* Eyes */}
-        <motion.path
+        <path
           d={getEyePath('left')}
           stroke="var(--primary)"
           strokeWidth="4"
           strokeLinecap="round"
           fill="none"
-          animate={{ d: getEyePath('left') }}
-          transition={{ duration: 0.3 }}
+          className="transition-all duration-300"
         />
-        <motion.path
+        <path
           d={getEyePath('right')}
           stroke="var(--primary)"
           strokeWidth="4"
           strokeLinecap="round"
           fill="none"
-          animate={{ d: getEyePath('right') }}
-          transition={{ duration: 0.3 }}
+          className="transition-all duration-300"
         />
 
         {/* Mouth */}
-        <motion.path
+        <path
           d={getMouthPath()}
           stroke="var(--primary)"
           strokeWidth="3"
           strokeLinecap="round"
           fill="none"
-          animate={{ d: getMouthPath() }}
-          transition={{ duration: 0.3 }}
+          className="transition-all duration-300"
         />
 
         {/* Antenna */}
-        <motion.line
+        <line
           x1="50" y1="10" x2="50" y2="0"
           stroke="currentColor"
           strokeWidth="2"
-          animate={{
-            rotate: expression === 'thinking' ? [0, 10, -10, 0] : 0
-          }}
-          transition={{ repeat: Infinity, duration: 1 }}
+          className={isThinking ? 'animate-pulse' : ''}
         />
-        <motion.circle
+        <circle
           cx="50" cy="0" r="3"
           fill="var(--primary)"
-          animate={{
-            opacity: expression === 'thinking' ? [1, 0.5, 1] : 1,
-            scale: expression === 'thinking' ? [1, 1.2, 1] : 1
-          }}
-          transition={{ repeat: Infinity, duration: 0.5 }}
+          className={isThinking ? 'animate-pulse' : ''}
         />
       </svg>
     </div>

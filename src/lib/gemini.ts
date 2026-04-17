@@ -2,22 +2,17 @@ import { GoogleGenAI } from "@google/genai";
 
 let aiClient: GoogleGenAI | null = null;
 const getAI = () => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is missing from environment. Please check your AI Studio Secrets.");
+  }
   if (!aiClient) {
-    aiClient = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+    aiClient = new GoogleGenAI({ apiKey });
   }
   return aiClient;
 };
 
-export const assistantModel = "gemini-flash-latest";
-
 export async function processCommand(command: string, context: any, history: { role: 'user' | 'assistant', content: string }[] = []) {
-  if (!process.env.GEMINI_API_KEY) {
-    console.error("GEMINI_API_KEY is missing!");
-    return "Mình xin lỗi, hiện tại mình chưa được cấu hình khóa API (GEMINI_API_KEY). Bạn hãy kiểm tra lại tệp .env trên máy tính trước khi build APK nhé!";
-  }
-
-  const ai = getAI();
-
   const systemInstruction = `
     Bạn là Linh, một trợ lý ảo thông minh, ấm áp và cực kỳ tâm lý đến từ Việt Nam. 
     Mục tiêu của bạn là giúp người dùng quản lý cuộc sống một cách hiệu quả nhưng vẫn giữ được sự gần gũi như một người bạn thân thiết.
@@ -54,17 +49,18 @@ export async function processCommand(command: string, context: any, history: { r
   `;
 
   try {
-    const chatHistory = history.map(h => ({
-      role: h.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: h.content }]
-    }));
+    const ai = getAI();
+    const contents = [
+      ...history.map(h => ({
+        role: h.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: h.content }]
+      })),
+      { role: 'user', parts: [{ text: command }] }
+    ];
 
     const response = await ai.models.generateContent({
-      model: assistantModel,
-      contents: [
-        ...chatHistory,
-        { role: 'user', parts: [{ text: command }] }
-      ],
+      model: "gemini-3-flash-preview",
+      contents,
       config: {
         systemInstruction,
       },
@@ -73,6 +69,6 @@ export async function processCommand(command: string, context: any, history: { r
     return response.text;
   } catch (error) {
     console.error("Gemini Error:", error);
-    return "Mình xin lỗi, mình gặp chút lỗi khi xử lý yêu cầu của bạn.";
+    return "Mình xin lỗi, mình gặp chút lỗi khi xử lý yêu cầu của bạn. Bạn hãy thử lại sau nhé!";
   }
 }

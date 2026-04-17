@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
 import { Sparkles, LogIn, Mail, Lock, User as UserIcon, ArrowRight, Chrome, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -118,9 +117,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+    <div 
       className="flex flex-col items-center justify-center py-10 space-y-8 w-full max-w-md mx-auto"
     >
       <div className="flex flex-col items-center space-y-4 text-center">
@@ -276,6 +273,6 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           </CardFooter>
         </Tabs>
       </Card>
-    </motion.div>
+    </div>
   );
 };
