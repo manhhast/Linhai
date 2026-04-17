@@ -35,7 +35,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { generateUserInsights } from './lib/learning';
 import { getApiUrl } from './lib/config';
 import { NotificationService } from './lib/notifications';
-import { useTelegram } from './lib/telegram';
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -47,32 +46,6 @@ export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [pendingCommand, setPendingCommand] = useState<string | undefined>(undefined);
-  const { tg, user: tgUser } = useTelegram();
-
-  // Telegram Initialization
-  useEffect(() => {
-    if (tg) {
-      tg.ready();
-      tg.expand();
-      
-      // Sync Telegram theme if it changes
-      const handleThemeChange = () => {
-        // The CSS variables are already handling this via index.css
-        // but we might want to toggle 'dark' class based on tg.colorScheme
-        const isDark = tg.colorScheme === 'dark';
-        if (isDark) {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
-      };
-
-      tg.onEvent('themeChanged', handleThemeChange);
-      handleThemeChange(); // Initial check
-
-      return () => tg.offEvent('themeChanged', handleThemeChange);
-    }
-  }, [tg]);
 
   // Auth Listener
   useEffect(() => {
@@ -388,30 +361,22 @@ export default function App() {
     >
       <div className="max-w-4xl w-full mx-auto px-4 md:px-8 py-4 flex flex-col h-full overflow-hidden">
         <header className="flex items-center justify-between shrink-0 mb-6">
-          {!tg && (
-            <motion.div 
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="flex items-center space-x-3"
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center space-x-3"
+          >
+            <div 
+              className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-[0_0_20px_rgba(var(--primary),0.3)]"
+              style={{ backgroundColor: 'var(--primary)' }}
             >
-              <div 
-                className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-[0_0_20px_rgba(var(--primary),0.3)]"
-                style={{ backgroundColor: 'var(--primary)' }}
-              >
-                <Sparkles className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold tracking-tight">{tgUser ? `Chào ${tgUser.first_name}` : 'Linh AI'}</h1>
-                <p className="text-xs text-muted-foreground">Trợ lý cá nhân thông minh</p>
-              </div>
-            </motion.div>
-          )}
-          {tg && (
-             <div className="flex items-center space-x-3">
-                <Sparkles className="w-5 h-5 text-primary" />
-                <h1 className="text-lg font-bold">Linh AI Assistant</h1>
-             </div>
-          )}
+              <Sparkles className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight">Linh AI</h1>
+              <p className="text-xs text-muted-foreground">Trợ lý cá nhân thông minh</p>
+            </div>
+          </motion.div>
           
           <div className="flex items-center space-x-4">
             <div className="hidden md:flex px-3 py-1 rounded-full bg-primary/10 border border-primary/20 items-center space-x-2">

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, LogIn, Mail, Lock, User as UserIcon, ArrowRight, Chrome, Send } from 'lucide-react';
+import { Sparkles, LogIn, Mail, Lock, User as UserIcon, ArrowRight, Chrome } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +14,6 @@ import {
   signInAnonymously
 } from '../lib/firebase';
 import { toast } from 'sonner';
-import { useTelegram } from '../lib/telegram';
 
 interface LoginProps {
   onLoginSuccess: () => void;
@@ -25,41 +24,8 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { tg, user: tgUser } = useTelegram();
-  const [isTelegramDetected, setIsTelegramDetected] = useState(!!tg);
-
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      if ((window as any).Telegram?.WebApp) setIsTelegramDetected(true);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
-
-  const handleTelegramLogin = async () => {
-    const webapp = (window as any).Telegram?.WebApp || tg;
-    const tUser = webapp?.initDataUnsafe?.user || tgUser;
-    
-    if (!tUser) return;
-    setIsLoading(true);
-    try {
-      const userCredential = await signInAnonymously(auth);
-      await updateProfile(userCredential.user, { 
-        displayName: tUser.first_name + (tUser.last_name ? ` ${tUser.last_name}` : '')
-      });
-      toast.success(`Chào mừng ${tUser.first_name} từ Telegram!`);
-      onLoginSuccess();
-    } catch (error) {
-      console.error("Telegram login error:", error);
-      toast.error("Đăng nhập Telegram thất bại.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleGoogleLogin = async () => {
-    if (isTelegramDetected) {
-      toast.warning("Google Login thường bị Telegram chặn. Hãy dùng nút 'Đăng nhập Telegram' ở dưới nhé!", { duration: 5000 });
-    }
     setIsLoading(true);
     try {
       await signInWithPopup(auth, googleProvider);
@@ -256,17 +222,6 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             </div>
 
             <div className="flex flex-col space-y-3">
-              {tg && tgUser && (
-                <Button 
-                  className="w-full rounded-xl h-11 bg-[#229ED9] hover:bg-[#1c86ba] text-white" 
-                  onClick={handleTelegramLogin}
-                  disabled={isLoading}
-                >
-                  <Send className="mr-2 h-4 w-4" />
-                  Đăng nhập nhanh với Telegram
-                </Button>
-              )}
-
               <Button 
                 variant="outline" 
                 className="w-full rounded-xl h-11 border-white/10 bg-background/50 hover:bg-white/5" 

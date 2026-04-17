@@ -49,7 +49,6 @@ export const Assistant: React.FC<AssistantProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const processedCommandRef = useRef<string | null>(null);
   const proactiveTriggeredRef = useRef(false);
-  const { tg } = useTelegram();
 
   const toggleChatMode = useCallback(async () => {
     const nextState = !isChatModeActive;
@@ -329,9 +328,8 @@ export const Assistant: React.FC<AssistantProps> = ({
   };
 
   return (
-    <div className={`flex flex-col h-full max-w-2xl mx-auto ${tg ? 'bg-transparent border-none' : 'bg-background/80 dark:bg-zinc-950/80 backdrop-blur-md rounded-2xl border border-primary/10 shadow-2xl'} overflow-hidden`}>
-      {!tg && (
-        <div className="p-4 border-b border-primary/10 bg-primary/5 dark:bg-primary/10 flex items-center justify-between">
+    <div className="flex flex-col h-full max-w-2xl mx-auto bg-background/80 dark:bg-zinc-950/80 backdrop-blur-md rounded-2xl border border-primary/10 shadow-2xl overflow-hidden">
+      <div className="p-4 border-b border-primary/10 bg-primary/5 dark:bg-primary/10 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <RobotFace 
               expression={currentExpression} 
@@ -372,8 +370,6 @@ export const Assistant: React.FC<AssistantProps> = ({
             </Button>
           )}
         </div>
-      )}
-
       <ScrollArea className="flex-1 p-4 min-h-0">
         <div className="space-y-6">
           {messages.map((msg) => (

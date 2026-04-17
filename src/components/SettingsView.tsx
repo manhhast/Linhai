@@ -29,34 +29,6 @@ export const SettingsView: React.FC<SettingsProps> = ({ profile, onUpdate }) => 
 
   return (
     <div className="space-y-6 pb-20">
-      {tg && (
-        <Card className="bg-card/50 dark:bg-zinc-900/50 border-white/5">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center">
-              <Send className="w-5 h-5 mr-2 text-[#229ED9]" />
-              Telegram Web App
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 rounded-full bg-[#229ED9]/10 flex items-center justify-center">
-                <Send className="w-6 h-6 text-[#229ED9]" />
-              </div>
-              <div>
-                <p className="text-sm font-bold">{tgUser?.first_name} {tgUser?.last_name}</p>
-                <p className="text-xs text-muted-foreground">@{tgUser?.username || 'user'}</p>
-              </div>
-              <div className="ml-auto px-2 py-0.5 rounded-full bg-green-500/10 border border-green-500/20 text-[10px] text-green-500 font-bold uppercase">
-                Đã kết nối
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground italic">
-              * Linh đang chạy trong chế độ Telegram Web App và tự động đồng bộ hóa với chủ đề Telegram của bạn.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
       <Card className="bg-card/50 dark:bg-zinc-900/50 border-white/5">
         <CardHeader>
           <CardTitle className="text-lg flex items-center">
