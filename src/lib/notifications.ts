@@ -24,6 +24,7 @@ export const NotificationService = {
               id,
               schedule: { at: scheduleAt },
               sound: 'default',
+              vibration: true,
             },
           ],
         });
@@ -34,7 +35,23 @@ export const NotificationService = {
       const delay = scheduleAt.getTime() - Date.now();
       if (delay > 0) {
         setTimeout(() => {
-          new Notification(title, { body });
+          const notification = new Notification(title, { 
+            body,
+            icon: '/icon.svg',
+            badge: '/icon.svg',
+            vibrate: [200, 100, 200], // Vibration pattern for Android PWA
+          });
+
+          // Play a gentle alert sound if the window/app is focused (foreground)
+          if (!document.hidden) {
+            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+            audio.play().catch(e => console.log('Audio play failed:', e));
+          }
+
+          notification.onclick = () => {
+            window.focus();
+            notification.close();
+          };
         }, delay);
       }
     } else {

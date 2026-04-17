@@ -60,6 +60,7 @@ export default function App() {
             uid: currentUser.uid,
             email: currentUser.email,
             name: currentUser.displayName,
+            photoURL: currentUser.photoURL,
             preferences: { 
               theme: 'dark', 
               themeColor: '#3b82f6',

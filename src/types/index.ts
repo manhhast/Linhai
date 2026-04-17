@@ -20,6 +20,7 @@ export interface UserProfile {
   uid: string;
   name: string;
   email: string;
+  photoURL?: string;
   preferences: {
     theme: 'light' | 'dark' | 'system';
     themeColor: string;

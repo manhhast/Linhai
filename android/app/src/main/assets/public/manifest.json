@@ -1,0 +1,18 @@
+{
+  "short_name": "Linh AI",
+  "name": "Linh AI - Trợ lý cá nhân thông minh",
+  "description": "Trợ lý ảo thông minh giúp bạn quản lý cuộc sống và học hỏi từ thói quen của bạn.",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#3b82f6",
+  "background_color": "#09090b"
+}

@@ -1,13 +1,14 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Sparkles, User, Bot, Loader2, Volume2, VolumeX, Mic, MicOff } from 'lucide-react';
+import { Send, Sparkles, User, Bot, Loader2, Volume2, VolumeX, Mic, MicOff, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { format, isToday, isYesterday } from 'date-fns';
 import { ChatMessage } from '@/src/types';
 import { RobotFace, Expression } from './RobotFace';
 import { VoiceInput } from './VoiceInput';
 import { processCommand } from '@/src/lib/gemini';
-import { useTelegram } from '../lib/telegram';
 import { 
   db, 
   collection, 
@@ -371,51 +372,88 @@ export const Assistant: React.FC<AssistantProps> = ({
           )}
         </div>
       <ScrollArea className="flex-1 p-4 min-h-0">
-        <div className="space-y-6">
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div className={`flex items-start space-x-3 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse space-x-reverse' : ''}`}>
-                <div className={`shrink-0 mt-1`}>
-                  {msg.role === 'user' ? (
-                    <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
-                      <User className="w-4 h-4" />
+        <div className="space-y-8">
+          {messages.map((msg, index) => {
+            const showDateSeparator = index === 0 || 
+              (messages[index - 1].timestamp.toDateString() !== msg.timestamp.toDateString());
+
+            return (
+              <React.Fragment key={msg.id}>
+                {showDateSeparator && (
+                  <div className="flex justify-center my-4">
+                    <span className="px-3 py-1 rounded-full bg-muted/50 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                      {isToday(msg.timestamp) ? 'Hôm nay' : 
+                       isYesterday(msg.timestamp) ? 'Hôm qua' : 
+                       format(msg.timestamp, 'dd/MM/yyyy')}
+                    </span>
+                  </div>
+                )}
+                
+                <div
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} group/msg animate-in fade-in slide-in-from-bottom-2 duration-300`}
+                >
+                  <div className={`flex items-start space-x-3 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse space-x-reverse' : ''}`}>
+                    <div className="shrink-0">
+                      {msg.role === 'user' ? (
+                        <Avatar className="w-8 h-8 border border-primary/10 shadow-sm">
+                          <AvatarImage src={context.userProfile?.photoURL} />
+                          <AvatarFallback className="bg-primary/10 text-primary">
+                            <User className="w-4 h-4" />
+                          </AvatarFallback>
+                        </Avatar>
+                      ) : (
+                        <div className="relative">
+                          <RobotFace expression={msg.expression || 'neutral'} size="sm" className="text-primary" />
+                          {isAssistantSpeaking && (
+                            <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full animate-ping" />
+                          )}
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <RobotFace expression={msg.expression || 'neutral'} size="sm" className="text-primary" />
-                  )}
+                    
+                    <div className="flex flex-col space-y-1">
+                      <div className={`relative px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm group ${
+                        msg.role === 'user' 
+                          ? 'bg-primary text-primary-foreground rounded-tr-none' 
+                          : 'bg-muted/80 dark:bg-zinc-900/80 text-foreground dark:text-zinc-100 rounded-tl-none border border-black/5 dark:border-white/10'
+                      }`}>
+                        {msg.content}
+                        
+                        {msg.role === 'assistant' && (
+                          <button 
+                            onClick={() => speak(msg.content)}
+                            className="absolute -right-8 top-1/2 -translate-y-1/2 p-1 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+                            title="Nghe lại"
+                          >
+                            <Volume2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                      <span className={`text-[10px] text-muted-foreground flex items-center px-1 font-medium ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <Clock className="w-2.5 h-2.5 mr-1 opacity-50" />
+                        {format(msg.timestamp, 'HH:mm')}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className={`p-4 rounded-2xl text-sm leading-relaxed shadow-sm relative group ${
-                  msg.role === 'user' 
-                    ? 'bg-primary text-primary-foreground rounded-tr-none' 
-                    : 'bg-muted/80 dark:bg-zinc-900/80 text-foreground dark:text-zinc-100 rounded-tl-none border border-black/5 dark:border-white/10'
-                }`}>
-                  {msg.content}
-                  {msg.role === 'assistant' && (
-                    <button 
-                      onClick={() => speak(msg.content)}
-                      className="absolute -right-8 top-1/2 -translate-y-1/2 p-1 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
-                      title="Nghe lại"
-                    >
-                      <Volume2 className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
+              </React.Fragment>
+            );
+          })}
+          
           {isLoading && (
-            <div className="flex justify-start">
-              <div className="flex items-center space-x-3 bg-muted/50 dark:bg-zinc-900/50 p-4 rounded-2xl rounded-tl-none border border-black/5 dark:border-white/10">
-                <RobotFace expression="thinking" size="sm" className="text-primary" />
-                <div className="flex flex-col">
-                  <span className="text-xs font-medium text-primary animate-pulse">Linh đang suy nghĩ...</span>
-                  <div className="flex space-x-1 mt-1">
-                    <div className="w-1 h-1 bg-primary rounded-full animate-bounce [animation-duration:1s]" />
-                    <div className="w-1 h-1 bg-primary rounded-full animate-bounce [animation-duration:1s] [animation-delay:0.2s]" />
-                    <div className="w-1 h-1 bg-primary rounded-full animate-bounce [animation-duration:1s] [animation-delay:0.4s]" />
+            <div className="flex justify-start animate-in fade-in slide-in-from-bottom-1 duration-300">
+              <div className="flex items-start space-x-3 max-w-[85%]">
+                <RobotFace expression="thinking" size="sm" className="text-primary shrink-0" />
+                <div className="flex flex-col space-y-1">
+                  <div className="bg-muted/50 dark:bg-zinc-900/50 p-4 rounded-2xl rounded-tl-none border border-black/5 dark:border-white/10">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs font-semibold text-primary/70 animate-pulse">Linh đang nghĩ...</span>
+                      <div className="flex space-x-1">
+                        <div className="w-1 h-1 bg-primary rounded-full animate-bounce [animation-duration:1s]" />
+                        <div className="w-1 h-1 bg-primary rounded-full animate-bounce [animation-duration:1s] [animation-delay:0.2s]" />
+                        <div className="w-1 h-1 bg-primary rounded-full animate-bounce [animation-duration:1s] [animation-delay:0.4s]" />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

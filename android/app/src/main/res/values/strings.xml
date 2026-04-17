@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Linh AI</string>
+    <string name="title_activity_main">Linh AI</string>
+    <string name="package_name">com.linhai.app</string>
+    <string name="custom_url_scheme">com.linhai.app</string>
+</resources>
