@@ -195,46 +195,60 @@ export default function App() {
       }
     });
 
-    const messagesQuery = query(
-      collection(db, 'messages'),
-      where('userId', '==', user.uid),
-      limit(50)
-    );
-    const unsubscribeMessages = onSnapshot(messagesQuery, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        ...doc.data(),
-        id: doc.id,
-        timestamp: new Date(doc.data().timestamp)
-      })) as ChatMessage[];
-      
-      // Sort client-side to avoid needing composite indices
-      const sortedData = [...data].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-      setMessages(sortedData);
-    }, (error) => {
-      console.error("Firestore messages listener error in App:", error);
-    });
+    // Messages with fallback
+    let currentMessagesUnsubscribe: (() => void) | null = null;
+    const setupMessagesListener = (isFallback = false) => {
+      const q = isFallback 
+        ? query(collection(db, 'messages'), where('userId', '==', user.uid), limit(100))
+        : query(collection(db, 'messages'), where('userId', '==', user.uid), orderBy('timestamp', 'desc'), limit(50));
+
+      const unsubscribe = onSnapshot(q, (snapshot: any) => {
+        const data = snapshot.docs.map((doc: any) => ({
+          ...doc.data(),
+          id: doc.id,
+          timestamp: new Date(doc.data().timestamp)
+        })) as ChatMessage[];
+        
+        const sortedData = [...data].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        setMessages(sortedData);
+      }, (error: any) => {
+        console.error(`Firestore messages listener error in App (fallback: ${isFallback}):`, error);
+        if (!isFallback && error?.message?.toLowerCase().includes('index')) {
+          if (currentMessagesUnsubscribe) currentMessagesUnsubscribe();
+          currentMessagesUnsubscribe = setupMessagesListener(true);
+        }
+      });
+      return unsubscribe;
+    };
+
+    currentMessagesUnsubscribe = setupMessagesListener();
 
     return () => {
       unsubscribeReminders();
       unsubscribeEvents();
       unsubscribeInsights();
-      unsubscribeMessages();
+      if (currentMessagesUnsubscribe) currentMessagesUnsubscribe();
       userUnsubscribe();
     };
   }, [user, isAuthReady]);
 
   // Learning trigger
+  const lastAnalysisTimeRef = React.useRef<number>(0);
   useEffect(() => {
     if (!user || reminders.length === 0) return;
     
-    const interval = setInterval(async () => {
+    const analyze = async () => {
+      const now = Date.now();
+      // Only analyze once every 10 minutes to save resources and avoid "rapid fire"
+      if (now - lastAnalysisTimeRef.current < 600000) return;
+      
       console.log("AI is learning from user habits...");
+      lastAnalysisTimeRef.current = now;
       const chatHistoryStrings = messages.map(m => `${m.role === 'user' ? 'User' : 'Linh'}: ${m.content}`);
       const newInsights = await generateUserInsights(user.uid, reminders, events, chatHistoryStrings);
       
       for (const insight of newInsights) {
         if (insight.confidence && insight.confidence > 0.8) {
-          // Check if this insight already exists (basic content match)
           const isDuplicate = insights.some(existing => 
             existing.content.toLowerCase().includes(insight.content!.toLowerCase()) ||
             insight.content!.toLowerCase().includes(existing.content.toLowerCase())
@@ -247,17 +261,23 @@ export default function App() {
               createdAt: new Date().toISOString()
             });
 
-            // If user is in Assistant tab, Linh can proactively mention it
             if (activeTab === 'assistant') {
               setPendingCommand(`Linh ơi, bạn vừa nhận ra một điều thú vị về mình: "${insight.content}". Hãy chia sẻ điều này với mình một cách ấm áp và đặt một câu hỏi liên quan nhé!`);
             }
           }
         }
       }
-    }, 180000); // Learn every 3 minutes for more responsiveness
+    };
+
+    const interval = setInterval(analyze, 600000); // 10 minutes
+    // Initial check (after a small delay to allow data to settle)
+    const initialTimer = setTimeout(analyze, 5000);
     
-    return () => clearInterval(interval);
-  }, [user, reminders, events, messages]);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(initialTimer);
+    };
+  }, [user, reminders.length, events.length, messages.length]);
 
 
 

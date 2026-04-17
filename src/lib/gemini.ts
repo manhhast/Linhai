@@ -12,6 +12,8 @@ const getAI = () => {
   return aiClient;
 };
 
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export async function processCommand(command: string, context: any, history: { role: 'user' | 'assistant', content: string }[] = []) {
   const systemInstruction = `
     Bạn là Linh, một trợ lý ảo thông minh, ấm áp và cực kỳ tâm lý đến từ Việt Nam. 
@@ -48,27 +50,48 @@ export async function processCommand(command: string, context: any, history: { r
     Hãy luôn là một người bạn đồng hành tinh tế và đáng tin cậy nhé!
   `;
 
-  try {
-    const ai = getAI();
-    const contents = [
-      ...history.map(h => ({
-        role: h.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: h.content }]
-      })),
-      { role: 'user', parts: [{ text: command }] }
-    ];
+  const contents = [
+    ...history.map(h => ({
+      role: h.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: h.content }]
+    })),
+    { role: 'user', parts: [{ text: command }] }
+  ];
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents,
-      config: {
-        systemInstruction,
-      },
-    });
+  const maxRetries = 3;
+  let lastError;
 
-    return response.text;
-  } catch (error) {
-    console.error("Gemini Error:", error);
-    return "Mình xin lỗi, mình gặp chút lỗi khi xử lý yêu cầu của bạn. Bạn hãy thử lại sau nhé!";
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const ai = getAI();
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents,
+        config: {
+          systemInstruction,
+        },
+      });
+
+      return response.text;
+    } catch (error: any) {
+      lastError = error;
+      const errorMessage = error?.message || String(error);
+      const isRetryable = errorMessage.includes('503') || 
+                         errorMessage.includes('429') || 
+                         errorMessage.includes('UNAVAILABLE') ||
+                         errorMessage.includes('high demand');
+
+      if (isRetryable && i < maxRetries - 1) {
+        const delay = Math.pow(2, i) * 1000;
+        console.warn(`Gemini API busy, retrying in ${delay}ms... (Attempt ${i + 1}/${maxRetries})`);
+        await sleep(delay);
+        continue;
+      }
+      
+      console.error("Gemini Error:", error);
+      break;
+    }
   }
+
+  return "Mình xin lỗi, hiện tại bộ não của mình đang hơi quá tải một chút. Bạn hãy đợi vài giây rồi thử nhắn lại cho mình nhé!";
 }

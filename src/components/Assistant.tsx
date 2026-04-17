@@ -168,39 +168,55 @@ export const Assistant: React.FC<AssistantProps> = ({
   useEffect(() => {
     if (!context.userProfile?.uid) return;
 
-    const messagesQuery = query(
+    let messagesQuery = query(
       collection(db, 'messages'),
       where('userId', '==', context.userProfile.uid),
+      orderBy('timestamp', 'desc'),
       limit(50)
     );
 
-    const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        ...doc.data(),
-        id: doc.id,
-        timestamp: new Date(doc.data().timestamp)
-      })) as ChatMessage[];
-      
-      // Sort client-side to avoid needing composite indices
-      const sortedData = [...data].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-      
-      if (sortedData.length === 0) {
-        setMessages([
-          {
-            id: 'welcome-message',
-            role: 'assistant',
-            content: 'Chào bạn! Tôi là Linh, trợ lý AI của bạn. Tôi có thể giúp gì cho bạn hôm nay?',
-            timestamp: new Date(),
-            expression: 'happy'
-          }
-        ]);
-      } else {
-        setMessages(sortedData);
-      }
-    }, (error) => {
-      console.error("Firestore messages listener error:", error);
-      // Silent fail for listener if just index missing, but log it
-    });
+    const setupListener = (q: any, isFallback: boolean = false) => {
+      return onSnapshot(q, (snapshot: any) => {
+        const data = snapshot.docs.map((doc: any) => ({
+          ...doc.data(),
+          id: doc.id,
+          timestamp: new Date(doc.data().timestamp)
+        })) as ChatMessage[];
+        
+        const sortedData = [...data].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        
+        if (sortedData.length === 0) {
+          setMessages([
+            {
+              id: 'welcome-message',
+              role: 'assistant',
+              content: 'Chào bạn! Tôi là Linh, trợ lý AI của bạn. Tôi có thể giúp gì cho bạn hôm nay?',
+              timestamp: new Date(),
+              expression: 'happy'
+            }
+          ]);
+        } else {
+          setMessages(sortedData);
+        }
+      }, (error: any) => {
+        console.error(`Firestore messages listener error (fallback: ${isFallback}):`, error);
+        
+        // If it's an index error and we haven't tried fallback yet
+        if (!isFallback && error?.message?.toLowerCase().includes('index')) {
+          console.warn("Missing index detected. Falling back to un-ordered query...");
+          const fallbackQuery = query(
+            collection(db, 'messages'),
+            where('userId', '==', context.userProfile.uid),
+            limit(100) // Increased limit for fallback
+          );
+          unsubscribe = setupListener(fallbackQuery, true);
+        } else {
+          toast.error("Không thể tải tin nhắn. Bạn hãy thử làm mới trang nhé!");
+        }
+      });
+    };
+
+    let unsubscribe = setupListener(messagesQuery);
 
     return () => unsubscribe();
   }, [context.userProfile?.uid]);
@@ -231,8 +247,14 @@ export const Assistant: React.FC<AssistantProps> = ({
   }, [isActive, scrollToBottom]);
 
   const handleSend = async (text: string, isHidden: boolean = false) => {
-    if (!text.trim() || !context.userProfile?.uid) return;
-
+    if (!text.trim() || !context.userProfile?.uid || isLoading) return;
+    
+    // Prevent same message being sent multiple times in rapid succession
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage && lastMessage.role === 'user' && lastMessage.content === text && !isHidden) {
+      const moreRecentCheck = (new Date().getTime() - lastMessage.timestamp.getTime()) < 3000;
+      if (moreRecentCheck) return;
+    }
     if (!isHidden) {
       const userMessageData = {
         role: 'user',
