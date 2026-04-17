@@ -26,21 +26,30 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { tg, user: tgUser } = useTelegram();
+  const [isTelegramDetected, setIsTelegramDetected] = useState(!!tg);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      if ((window as any).Telegram?.WebApp) setIsTelegramDetected(true);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleTelegramLogin = async () => {
-    if (!tgUser) return;
+    const webapp = (window as any).Telegram?.WebApp || tg;
+    const tUser = webapp?.initDataUnsafe?.user || tgUser;
+    
+    if (!tUser) return;
     setIsLoading(true);
     try {
-      // In a real TWA, you'd verify initData on your backend.
-      // For this applet, we'll sign in anonymously and link the display name.
       const userCredential = await signInAnonymously(auth);
       await updateProfile(userCredential.user, { 
-        displayName: tgUser.first_name + (tgUser.last_name ? ` ${tgUser.last_name}` : '')
+        displayName: tUser.first_name + (tUser.last_name ? ` ${tUser.last_name}` : '')
       });
-      toast.success(`Chào mừng ${tgUser.first_name} từ Telegram!`);
+      toast.success(`Chào mừng ${tUser.first_name} từ Telegram!`);
       onLoginSuccess();
     } catch (error) {
-      console.error("Telegram logic login error:", error);
+      console.error("Telegram login error:", error);
       toast.error("Đăng nhập Telegram thất bại.");
     } finally {
       setIsLoading(false);
@@ -48,6 +57,9 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   };
 
   const handleGoogleLogin = async () => {
+    if (isTelegramDetected) {
+      toast.warning("Google Login thường bị Telegram chặn. Hãy dùng nút 'Đăng nhập Telegram' ở dưới nhé!", { duration: 5000 });
+    }
     setIsLoading(true);
     try {
       await signInWithPopup(auth, googleProvider);
