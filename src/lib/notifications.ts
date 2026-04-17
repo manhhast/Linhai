@@ -24,7 +24,6 @@ export const NotificationService = {
               id,
               schedule: { at: scheduleAt },
               sound: 'default',
-              vibration: true,
             },
           ],
         });
@@ -35,7 +34,7 @@ export const NotificationService = {
       const delay = scheduleAt.getTime() - Date.now();
       if (delay > 0) {
         setTimeout(() => {
-          const notification = new Notification(title, { 
+          const notification = new (window as any).Notification(title, { 
             body,
             icon: '/icon.svg',
             badge: '/icon.svg',

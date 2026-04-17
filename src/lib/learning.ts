@@ -1,12 +1,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Reminder, Event, UserInsight } from "../types";
 
-let aiClient: GoogleGenAI | null = null;
 const getAI = () => {
-  if (!aiClient) {
-    aiClient = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
-  }
-  return aiClient;
+  return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 };
 
 export async function generateUserInsights(
@@ -15,7 +11,6 @@ export async function generateUserInsights(
   events: Event[],
   chatHistory: string[]
 ): Promise<Partial<UserInsight>[]> {
-  const ai = getAI();
   const prompt = `
     Analyze the following user data to identify deep habits, personal preferences, and provide highly relevant, proactive suggestions.
     
@@ -40,9 +35,10 @@ export async function generateUserInsights(
   `;
 
   try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
-      model: "gemini-flash-latest",
-      contents: prompt,
+      model: "gemini-3-flash-preview",
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -59,6 +55,10 @@ export async function generateUserInsights(
         }
       }
     });
+
+    if (!response.text) {
+      throw new Error("Empty response from Learning AI");
+    }
 
     return JSON.parse(response.text);
   } catch (error) {

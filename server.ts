@@ -37,11 +37,6 @@ async function startServer() {
       res.status(404).json({ error: 'API route not found' });
     });
 
-    // Ensure asset requests don't fall back to index.html (causes MIME type errors)
-    app.get(['/assets/*', '/icon.svg', '/manifest.json', '/sw.js'], (req, res) => {
-      res.status(404).send('Asset not found');
-    });
-
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });

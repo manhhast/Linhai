@@ -1,15 +1,13 @@
 import { GoogleGenAI } from "@google/genai";
 
-let aiClient: GoogleGenAI | null = null;
 const getAI = () => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is missing from environment. Please check your AI Studio Secrets.");
+    // In local development or Render, if this is missing, the AI won't work.
+    // However, the skill forbids showing UI for it.
+    console.warn("GEMINI_API_KEY is missing from environment.");
   }
-  if (!aiClient) {
-    aiClient = new GoogleGenAI({ apiKey });
-  }
-  return aiClient;
+  return new GoogleGenAI({ apiKey: apiKey || "" });
 };
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -67,10 +65,12 @@ export async function processCommand(command: string, context: any, history: { r
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents,
-        config: {
-          systemInstruction,
-        },
+        config: { systemInstruction },
       });
+
+      if (!response.text) {
+        throw new Error("Empty response from AI");
+      }
 
       return response.text;
     } catch (error: any) {

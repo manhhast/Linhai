@@ -208,17 +208,26 @@ export default function App() {
 
   // Learning trigger
   const lastAnalysisTimeRef = React.useRef<number>(0);
+  const lastMessagesCountRef = React.useRef<number>(0);
+  const lastRemindersCountRef = React.useRef<number>(0);
+
   useEffect(() => {
     if (!user || reminders.length === 0) return;
     
     const analyze = async () => {
       const now = Date.now();
-      // Only analyze once every 10 minutes to save resources and avoid "rapid fire"
-      if (now - lastAnalysisTimeRef.current < 600000) return;
+      // Only analyze once every 30 minutes to save resources
+      if (now - lastAnalysisTimeRef.current < 1800000) return;
       
+      // Only analyze if there's a significant change (e.g., more messages or reminders)
+      if (messages.length === lastMessagesCountRef.current && reminders.length === lastRemindersCountRef.current) return;
+
       console.log("AI is learning from user habits...");
       lastAnalysisTimeRef.current = now;
-      const chatHistoryStrings = messages.map(m => `${m.role === 'user' ? 'User' : 'Linh'}: ${m.content}`);
+      lastMessagesCountRef.current = messages.length;
+      lastRemindersCountRef.current = reminders.length;
+      
+      const chatHistoryStrings = messages.slice(-20).map(m => `${m.role === 'user' ? 'User' : 'Linh'}: ${m.content}`);
       const newInsights = await generateUserInsights(user.uid, reminders, events, chatHistoryStrings);
       
       for (const insight of newInsights) {
