@@ -2,7 +2,12 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Reminder, Event, UserInsight } from "../types";
 
 const getAI = () => {
-  return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+  const apiKey = (process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY);
+  if (!apiKey) {
+    console.warn("GEMINI_API_KEY is missing for Insights.");
+    return null;
+  }
+  return new GoogleGenAI({ apiKey });
 };
 
 export async function generateUserInsights(
@@ -36,6 +41,8 @@ export async function generateUserInsights(
 
   try {
     const ai = getAI();
+    if (!ai) return [];
+    
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: [{ role: 'user', parts: [{ text: prompt }] }],

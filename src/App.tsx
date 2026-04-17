@@ -219,46 +219,51 @@ export default function App() {
       // Only analyze once every 30 minutes to save resources
       if (now - lastAnalysisTimeRef.current < 1800000) return;
       
-      // Only analyze if there's a significant change (e.g., more messages or reminders)
-      if (messages.length === lastMessagesCountRef.current && reminders.length === lastRemindersCountRef.current) return;
+      // Only analyze if there's a significant change (at least 5 new messages or any change in reminders)
+      const messageDiff = messages.length - lastMessagesCountRef.current;
+      const reminderDiff = reminders.length !== lastRemindersCountRef.current;
+      
+      if (messageDiff < 5 && !reminderDiff && lastAnalysisTimeRef.current !== 0) return;
 
-      console.log("AI is learning from user habits...");
+      console.log("Linh is learning from your habits...");
       lastAnalysisTimeRef.current = now;
       lastMessagesCountRef.current = messages.length;
       lastRemindersCountRef.current = reminders.length;
       
-      const chatHistoryStrings = messages.slice(-20).map(m => `${m.role === 'user' ? 'User' : 'Linh'}: ${m.content}`);
-      const newInsights = await generateUserInsights(user.uid, reminders, events, chatHistoryStrings);
-      
-      for (const insight of newInsights) {
-        if (insight.confidence && insight.confidence > 0.8) {
-          const isDuplicate = insights.some(existing => 
-            existing.content.toLowerCase().includes(insight.content!.toLowerCase()) ||
-            insight.content!.toLowerCase().includes(existing.content.toLowerCase())
-          );
+      try {
+        const chatHistoryStrings = messages.slice(-15).map(m => `${m.role === 'user' ? 'User' : 'Linh'}: ${m.content}`);
+        const newInsights = await generateUserInsights(user.uid, reminders, events, chatHistoryStrings);
+        
+        for (const insight of newInsights) {
+          if (insight.confidence && insight.confidence > 0.8) {
+            const isDuplicate = insights.some(existing => 
+              existing.content.toLowerCase().includes(insight.content!.toLowerCase()) ||
+              insight.content!.toLowerCase().includes(existing.content.toLowerCase())
+            );
 
-          if (!isDuplicate) {
-            await addDoc(collection(db, 'insights'), {
-              ...insight,
-              userId: user.uid,
-              createdAt: new Date().toISOString()
-            });
+            if (!isDuplicate) {
+              await addDoc(collection(db, 'insights'), {
+                ...insight,
+                userId: user.uid,
+                createdAt: new Date().toISOString()
+              });
 
-            if (activeTab === 'assistant') {
-              setPendingCommand(`Linh ơi, bạn vừa nhận ra một điều thú vị về mình: "${insight.content}". Hãy chia sẻ điều này với mình một cách ấm áp và đặt một câu hỏi liên quan nhé!`);
+              if (activeTab === 'assistant') {
+                setPendingCommand(`Linh ơi, bạn vừa nhận ra một điều thú vị về mình: "${insight.content}". Hãy chia sẻ điều này với mình một cách ấm áp và đặt một câu hỏi liên quan nhé!`);
+              }
             }
           }
         }
+      } catch (err) {
+        console.error("Analysis period error:", err);
       }
     };
 
-    const interval = setInterval(analyze, 600000); // 10 minutes
-    // Initial check (after a small delay to allow data to settle)
-    const initialTimer = setTimeout(analyze, 5000);
+    // Debounce to avoid constant updates
+    const timer = setTimeout(analyze, 15000);
     
     return () => {
-      clearInterval(interval);
-      clearTimeout(initialTimer);
+      clearTimeout(timer);
     };
   }, [user, reminders.length, events.length, messages.length]);
 
